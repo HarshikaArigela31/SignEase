@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Sign Language Recognition System</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤟 Indian Sign Language Recognition</h1>
+            <p class="subtitle">Real-time gesture recognition with multilingual speech</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Left: Large Camera Feed (60%) -->
+            <div class="video-section">
+                <div class="camera-header">
+                    <div class="camera-controls-top">
+                            <button id="startBtn" class="btn">▶ START</button>
+                            <button id="stopBtn" class="btn">■ STOP</button>
+                            <select id="cameraSelect" class="camera-select">
+                                <option value="user">Front Camera</option>
+                            </select>
+                            <label class="mirror-toggle"><input type="checkbox" id="mirrorToggle"> Mirror Video</label>
+                    </div>
+                </div>
+                <div class="camera-container">
+                    <video id="webcam" playsinline></video>
+                    <canvas id="canvas" class="output_canvas"></canvas>
+                    <!-- Live gesture overlay on camera -->
+                    <div class="gesture-overlay">
+                        <div class="gesture-overlay-text" id="gesture-overlay">Ready</div>
+                        <div class="gesture-overlay-confidence" id="gesture-overlay-conf">Confidence: 0%</div>
+                    </div>
+                </div>
+                <div class="camera-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">FPS:</span>
+                        <span id="fps" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Confidence:</span>
+                        <span id="confidence" class="stat-value">0%</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span id="status" class="stat-value status-ready">Ready</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Tabbed Navigation (40%) -->
+            <div class="sidebar-section">
+                <!-- Tab Navigation Rail -->
+                <div class="tab-rail">
+                    <button class="tab-btn active" data-tab="output">📝 Output</button>
+                    <button class="tab-btn" data-tab="training">🎓 Train</button>
+                    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <!-- OUTPUT TAB -->
+                    <div id="output-tab" class="tab-pane active">
+                        <h2>📝 Recognized Output</h2>
+                        
+                        <div id="gesture-display" class="gesture-display">
+                            <div class="gesture-text">Waiting...</div>
+                            <div class="gesture-confidence">Confidence: 0%</div>
+                        </div>
+
+                        <h3>Translated Text</h3>
+                        <div id="text-output" class="text-output">
+                            <p>No gesture recognized yet</p>
+                        </div>
+
+                        <h3>Language & Speech</h3>
+                        <div class="control-group">
+                            <label for="language-select">🗣️ Language:</label>
+                            <select id="language-select">
+                                <option value="en-US">English (US)</option>
+                                <option value="hi-IN">हिंदी (Hindi)</option>
+                                <option value="te-IN">తెలుగు (Telugu)</option>
+                            </select>
+                        </div>
+
+                        <div class="audio-controls">
+                            <button id="speak-btn" class="btn btn-primary btn-block" disabled>🔊 Speak</button>
+                            <button id="stop-speak-btn" class="btn btn-secondary btn-block" disabled>⏹️ Stop</button>
+                        </div>
+                        <div id="audio-status" class="audio-status">Ready</div>
+                    </div>
+
+                    <!-- TRAINING TAB -->
+                    <div id="training-tab" class="tab-pane">
+                        <h2>🎓 Train for Better Recognition</h2>
+                        <p class="help-text">
+                            <strong>Why train?</strong> Record samples of YOUR hand gestures so the app learns your unique style.
+                        </p>
+
+                        <div class="training-steps">
+                            <div class="training-step">
+                                <div class="step-number">1️⃣</div>
+                                <div class="step-content">
+                                    <label for="gesture-select"><strong>Pick a Gesture</strong></label>
+                                    <select id="gesture-select"></select>
+                                </div>
+                            </div>
+
+                            <div class="training-step">
+                                <div class="step-number">2️⃣</div>
+                                <div class="step-content">
+                                    <label><strong>Record Samples</strong></label>
+                                    <p class="help-text" style="margin:5px 0;">Hold gesture steady. Move hand slightly each time.</p>
+                                    <button id="record-sample-btn" class="btn btn-primary btn-block">📸 Record Now</button>
+                                    <div class="sample-counter">
+                                        <span>Samples:</span>
+                                        <span id="sample-count" class="sample-count-number">0</span>
+                                    </div>
+                                    <p class="help-text" style="margin-top:8px;"><em>Goal: 8-15 samples per gesture</em></p>
+                                </div>
+                            </div>
+
+                            <div class="training-step">
+                                <div class="step-number">3️⃣</div>
+                                <div class="step-content">
+                                    <label><strong>Save Training Data</strong></label>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                        <button id="save-samples-btn" class="btn btn-secondary">💾 Save</button>
+                                        <button id="load-samples-btn" class="btn btn-secondary">📂 Load</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button id="clear-samples-btn" class="btn btn-warning btn-block">🗑️ Clear Data</button>
+
+                            <div class="training-step" style="margin-top:12px;">
+                                <div class="step-number">🔧</div>
+                                <div class="step-content">
+                                    <label><strong>Quick Calibrate</strong></label>
+                                    <p class="help-text" style="margin:6px 0;">Automatically capture several samples for a chosen gesture.</p>
+                                    <div style="display:flex; gap:8px; align-items:center;">
+                                        <select id="quick-gesture-select">
+                                            <option value="FIVE">Five (open palm)</option>
+                                            <option value="ONE">One (index)</option>
+                                            <option value="PALM_UP">Palm Up</option>
+                                            <option value="HELLO">Hello</option>
+                                            <option value="YES">Yes</option>
+                                        </select>
+                                        <input id="auto-record-count" type="number" value="10" min="1" max="50" style="width:70px;">
+                                        <button id="auto-record-btn" class="btn btn-primary">Auto-record</button>
+                                    </div>
+                                    <div id="auto-record-status" style="margin-top:8px;font-size:12px;color:#fff"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SETTINGS TAB -->
+                    <div id="settings-tab" class="tab-pane">
+                        <h2>⚙️ Settings</h2>
+
+                        <div class="control-group">
+                            <label for="confidence-threshold">🎯 Detection Sensitivity:</label>
+                            <input type="range" id="confidence-threshold" min="0" max="1" step="0.05" value="0.5">
+                            <span id="threshold-value">50%</span>
+                        </div>
+
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="show-landmarks" checked>
+                                👀 Show Hand Landmarks
+                            </label>
+                        </div>
+
+                        <div class="control-group">
+                            <label>
+                                <input type="checkbox" id="stabilization-enabled" checked>
+                                ✨ Adaptive Stabilization (Recommended)
+                            </label>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <h3>📚 Common Gestures to Train</h3>
+                        <div class="gesture-tips">
+                            <div class="tip-item">
+                                <strong>Numbers (0-5)</strong>
+                                <p>Extend fingers to show count—easiest to start!</p>
+                            </div>
+                            <div class="tip-item">
+                                <strong>Pointing</strong>
+                                <p>Index finger pointing up/down/left/right</p>
+                            </div>
+                            <div class="tip-item">
+                                <strong>Palm Orientation</strong>
+                                <p>Open palm facing up or down</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🤟 Indian Sign Language Recognition | Built with MediaPipe & Web Speech API</p>
+        </footer>
+    </div>
+
+    <script src="gesture-dictionary.js"></script>
+    <script src="stabilization.js"></script>
+    <script src="model.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
